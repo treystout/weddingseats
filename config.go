@@ -14,6 +14,7 @@ type Configuration struct {
 		AuthURL      string
 		TokenURL     string
 		RedirectURL  string
+		Scope        string
 	}
 }
 

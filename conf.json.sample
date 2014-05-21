@@ -6,5 +6,6 @@
     "AuthURL":      "https://graph.facebook.com/oauth/authorize",
     "TokenURL":     "https://graph.facebook.com/oauth/access_token",
     "RedirectURL":  "http://your.site.com/facebook_authorized"
+    "Scope": "user_likes,user_location"
   }
 }
