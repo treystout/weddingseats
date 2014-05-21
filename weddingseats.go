@@ -32,6 +32,7 @@ func init() {
 	FACEBOOK_CFG.AuthURL = config.Facebook.AuthURL
 	FACEBOOK_CFG.TokenURL = config.Facebook.TokenURL
 	FACEBOOK_CFG.RedirectURL = config.Facebook.RedirectURL
+	FACEBOOK_CFG.Scope = config.Facebook.Scope
 
 	// setup session storage
 	SessionStore = sessions.NewCookieStore([]byte(config.CookieSecret))
@@ -41,6 +42,7 @@ func init() {
 
 	// setup URL handlers
 	http.HandleFunc("/", HandleIndex)
+	http.HandleFunc("/tz", HandleGender)
 	http.HandleFunc("/facebook_start", HandleFacebookStart)
 	http.HandleFunc("/facebook_authorized", HandleFacebookAuthorized)
 }

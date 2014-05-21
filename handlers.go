@@ -3,7 +3,6 @@ package weddingseats
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 
 	"code.google.com/p/goauth2/oauth"
@@ -19,27 +18,11 @@ func HandleIndex(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	c := appengine.NewContext(r)
-	other_user, err := LocateUser(&c, "798890670134774")
-	if err != nil {
-		c.Warningf("couldn't find user! %s", err.Error())
-	}
-	c.Debugf("got this user back %+v", other_user)
+	//c := appengine.NewContext(r)
 	user := GetUserFromSession(r)
 
-	w.Header().Set("Content-Type", "text/html")
-	session, _ := SessionStore.Get(r, "somedude")
-	counter, found := session.Values["counter"]
-	log.Printf("counter from session: %+v", counter)
-	if !found {
-		log.Printf("counter not found in session")
-		counter = 0
-	}
-	session.Values["counter"] = counter.(int) + 1
-	log.Printf("counter inserted into session as: %+v", counter)
-	session.Save(r, w)
+	//w.Header().Set("Content-Type", "text/html")
 	fmt.Fprintf(w, "<h1>Oh hai there: %s</h1>", user.FirstName)
-	fmt.Fprintf(w, "counter: %d<br>", counter)
 	fmt.Fprintf(w, "<a href=\"/facebook_start\">login with facebook</a>")
 }
 
@@ -52,47 +35,81 @@ func HandleFacebookStart(w http.ResponseWriter, r *http.Request) {
 
 func HandleFacebookAuthorized(w http.ResponseWriter, r *http.Request) {
 	c := appengine.NewContext(r)
-	c.Debugf("looks like you got authed via facebook")
+	//c.Debugf("looks like you got authed via facebook")
 
+	// Since we're on GAE we can't use the default oauth transport's client,
+	// so we're injecting the GAE urlfetcher instead
 	transport := &oauth.Transport{
 		Config:    FACEBOOK_CFG,
 		Transport: &urlfetch.Transport{Context: c},
 	}
+
+	//
 	code := r.FormValue("code")
-	c.Debugf("fb code: >>>%s<<<", code)
+	//c.Debugf("fb code: >>>%s<<<", code)
 	token, err := transport.Exchange(code)
 	if err != nil {
-		c.Errorf("token could not be exchanged: %s", err.Error())
+		http.Error(w, fmt.Sprintf("Error exchanging Facebook token (%s)", err.Error()), http.StatusInternalServerError)
+		return
 	}
-	// TODO: put the token in a cache and log the user in
-
-	c.Debugf("facebook exchanged token: >>>%s<<<", token)
+	//c.Debugf("facebook exchanged token: >>>%s<<<", token)
 
 	// fetch their /me info
 	resp, err := transport.Client().Get("https://graph.facebook.com/me")
 	if err != nil {
-		c.Errorf("couldn't get /me (%s)", err.Error())
+		http.Error(w, fmt.Sprintf("error fetching Facebook info (%s)", err.Error()), http.StatusInternalServerError)
+		return
 	}
 	defer resp.Body.Close()
-	/*
-		body, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			c.Errorf("couldn't read body (%s)", err.Error())
-		}
-	*/
 
 	// try to unmarshall the json
 	user := new(User)
+	user.FacebookAccessToken = token.AccessToken
+	user.FacebookAccessTokenExpiry = token.Expiry
 	decoder := json.NewDecoder(resp.Body)
-	decoder.UseNumber() // to get our int64's out
+	//decoder.UseNumber() // to get our int64's out
 	err = decoder.Decode(user)
 	if err != nil {
 		c.Errorf("couldn't decode json from facebook! %s", err.Error())
 	}
 	c.Debugf("decoded /me as user: %+v", user)
-	user.Save(&c)
+	err = user.Save(&c)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Couldn't save user! %s", err.Error()), http.StatusInternalServerError)
+		return
+	}
 	user.Login(w, r)
 
 	http.Redirect(w, r, "/", http.StatusFound)
-	//fmt.Fprintf(w, "facebook /me: %s", string(body))
+}
+
+func HandleGender(w http.ResponseWriter, r *http.Request) {
+	type Foo struct {
+		Gender string `json:"gender"`
+	}
+	var foo Foo
+	foo.Gender = "??"
+
+	user := GetUserFromSession(r)
+	if user.FacebookID != "" {
+		c := appengine.NewContext(r)
+		transport := &oauth.Transport{
+			Config:    FACEBOOK_CFG,
+			Token:     user.Token(),
+			Transport: &urlfetch.Transport{Context: c},
+		}
+		resp, err := transport.Client().Get("https://graph.facebook.com/v2.0/me?fields=gender")
+		if err != nil {
+			http.Error(w, fmt.Sprintf("error fetching Facebook info (%s)", err.Error()), http.StatusInternalServerError)
+			return
+		}
+		defer resp.Body.Close()
+
+		decoder := json.NewDecoder(resp.Body)
+		err = decoder.Decode(&foo)
+		if err != nil {
+			c.Errorf("couldn't decode json from facebook! %s", err.Error())
+		}
+	}
+	fmt.Fprintf(w, "gender from fb is %s", foo.Gender)
 }

@@ -5,16 +5,21 @@ import (
 	"net/http"
 	"time"
 
+	"code.google.com/p/goauth2/oauth"
+
 	"appengine"
 	"appengine/datastore"
 )
 
 type User struct {
-	FacebookID  string `json:"id"`
-	FirstName   string `json:"first_name"`
-	LastName    string `json:"last_name"`
-	Gender      string `json:"gender"`
-	DateCreated time.Time
+	FacebookID                string `json:"id"`
+	FirstName                 string `json:"first_name"`
+	LastName                  string `json:"last_name"`
+	Gender                    string `json:"gender"`
+	FacebookAccessToken       string
+	FacebookAccessTokenExpiry time.Time
+	TokenExpiry               time.Time
+	DateCreated               time.Time
 }
 
 var ANONYMOUS *User
@@ -27,6 +32,14 @@ func init() {
 		Gender:      "female",
 		DateCreated: time.Unix(0, 0),
 	}
+}
+
+func (u *User) Token() *oauth.Token {
+	token := &oauth.Token{
+		AccessToken: u.FacebookAccessToken,
+		Expiry:      u.FacebookAccessTokenExpiry,
+	}
+	return token
 }
 
 func (u *User) Login(w http.ResponseWriter, r *http.Request) {
