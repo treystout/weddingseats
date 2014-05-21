@@ -7,7 +7,8 @@ import (
 )
 
 type Configuration struct {
-	Facebook struct {
+	CookieSecret string
+	Facebook     struct {
 		ClientId     string
 		ClientSecret string
 		AuthURL      string

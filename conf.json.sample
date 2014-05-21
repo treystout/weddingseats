@@ -1,4 +1,5 @@
 {
+  "CookieSecret": "some-secret-string",
   "Facebook": {
     "ClientId":     "",
     "ClientSecret": "",

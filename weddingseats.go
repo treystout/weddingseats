@@ -1,11 +1,11 @@
 package weddingseats
 
 import (
-	"log"
 	"net/http"
 	"sync"
 
 	"code.google.com/p/goauth2/oauth"
+	"github.com/gorilla/sessions"
 )
 
 // global vars
@@ -13,6 +13,7 @@ var (
 	config       *Configuration
 	configLock   = new(sync.RWMutex) // so we can hot-reload config
 	FACEBOOK_CFG = new(oauth.Config)
+	SessionStore *sessions.CookieStore
 )
 
 func check(e error) {
@@ -32,7 +33,11 @@ func init() {
 	FACEBOOK_CFG.TokenURL = config.Facebook.TokenURL
 	FACEBOOK_CFG.RedirectURL = config.Facebook.RedirectURL
 
-	log.Printf("conf was read: %+v", config)
+	// setup session storage
+	SessionStore = sessions.NewCookieStore([]byte(config.CookieSecret))
+	SessionStore.Options = &sessions.Options{
+		Secure: false,
+	}
 
 	// setup URL handlers
 	http.HandleFunc("/", HandleIndex)

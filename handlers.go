@@ -1,8 +1,9 @@
 package weddingseats
 
 import (
+	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"log"
 	"net/http"
 
 	"code.google.com/p/goauth2/oauth"
@@ -12,7 +13,34 @@ import (
 )
 
 func HandleIndex(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprint(w, "<a href=\"/facebook_start\">login with facebook</a>")
+	// net/http appears to default to your most permissive route ("/" in this case)
+	// so defend against favicon and friends from also hitting this route
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
+	}
+	c := appengine.NewContext(r)
+	other_user, err := LocateUser(&c, "798890670134774")
+	if err != nil {
+		c.Warningf("couldn't find user! %s", err.Error())
+	}
+	c.Debugf("got this user back %+v", other_user)
+	user := GetUserFromSession(r)
+
+	w.Header().Set("Content-Type", "text/html")
+	session, _ := SessionStore.Get(r, "somedude")
+	counter, found := session.Values["counter"]
+	log.Printf("counter from session: %+v", counter)
+	if !found {
+		log.Printf("counter not found in session")
+		counter = 0
+	}
+	session.Values["counter"] = counter.(int) + 1
+	log.Printf("counter inserted into session as: %+v", counter)
+	session.Save(r, w)
+	fmt.Fprintf(w, "<h1>Oh hai there: %s</h1>", user.FirstName)
+	fmt.Fprintf(w, "counter: %d<br>", counter)
+	fmt.Fprintf(w, "<a href=\"/facebook_start\">login with facebook</a>")
 }
 
 func HandleFacebookStart(w http.ResponseWriter, r *http.Request) {
@@ -40,16 +68,31 @@ func HandleFacebookAuthorized(w http.ResponseWriter, r *http.Request) {
 
 	c.Debugf("facebook exchanged token: >>>%s<<<", token)
 
-	// fetch their me info
+	// fetch their /me info
 	resp, err := transport.Client().Get("https://graph.facebook.com/me")
 	if err != nil {
 		c.Errorf("couldn't get /me (%s)", err.Error())
 	}
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		c.Errorf("couldn't read body (%s)", err.Error())
-	}
+	/*
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			c.Errorf("couldn't read body (%s)", err.Error())
+		}
+	*/
 
-	fmt.Fprintf(w, "facebook /me: %s", string(body))
+	// try to unmarshall the json
+	user := new(User)
+	decoder := json.NewDecoder(resp.Body)
+	decoder.UseNumber() // to get our int64's out
+	err = decoder.Decode(user)
+	if err != nil {
+		c.Errorf("couldn't decode json from facebook! %s", err.Error())
+	}
+	c.Debugf("decoded /me as user: %+v", user)
+	user.Save(&c)
+	user.Login(w, r)
+
+	http.Redirect(w, r, "/", http.StatusFound)
+	//fmt.Fprintf(w, "facebook /me: %s", string(body))
 }
