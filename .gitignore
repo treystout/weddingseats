@@ -1,4 +1,6 @@
 conf.json
+conf.json.prod
+conf.json.testing
 
 # Compiled Object files, Static and Dynamic libs (Shared Objects)
 *.o
