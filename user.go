@@ -46,7 +46,7 @@ func (u *User) Token() *oauth.Token {
 
 func (u *User) Login(w http.ResponseWriter, r *http.Request) {
 	// call this to register a known User with this user's session
-	session, _ := SessionStore.Get(r, "session")
+	session, _ := SessionStore.Get(r, KeySessionCookieName)
 	session.Values["user_key"] = u.FacebookID
 	session.Save(r, w)
 }
@@ -59,7 +59,7 @@ func GetUserFromSession(r *http.Request) (user *User) {
 		return rv.(*User)
 	}
 
-	session, _ := SessionStore.Get(r, "session")
+	session, _ := SessionStore.Get(r, KeySessionCookieName)
 	user_key, found := session.Values["user_key"]
 	if !found {
 		return ANONYMOUS
