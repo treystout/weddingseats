@@ -3,13 +3,37 @@ package weddingseats
 import (
 	"encoding/json"
 	"fmt"
+	"html/template"
+	"log"
 	"net/http"
+	"path/filepath"
+
+	"github.com/gorilla/sessions"
 
 	"code.google.com/p/goauth2/oauth"
 
 	"appengine"
 	"appengine/urlfetch"
 )
+
+var T *template.Template
+
+func init() {
+	// Parse our templates for use by the following handlers
+	var err error
+	T, err = template.ParseGlob(filepath.Join("templates", "*.html"))
+	if err != nil {
+		log.Fatalf("Couldn't parse templates! (%s)", err.Error())
+	}
+}
+
+func Render(w http.ResponseWriter, name string, context interface{}) {
+	err := T.ExecuteTemplate(w, name, context)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Couldn't render template (%s)", err.Error()), http.StatusInternalServerError)
+		panic(err)
+	}
+}
 
 func HandleIndex(w http.ResponseWriter, r *http.Request) {
 	// net/http appears to default to your most permissive route ("/" in this case)
@@ -18,12 +42,9 @@ func HandleIndex(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	//c := appengine.NewContext(r)
 	user := GetUserFromSession(r)
 
-	//w.Header().Set("Content-Type", "text/html")
-	fmt.Fprintf(w, "<h1>Oh hai there: %s</h1>", user.FirstName)
-	fmt.Fprintf(w, "<a href=\"/facebook_start\">login with facebook</a>")
+	Render(w, "index.html", user)
 }
 
 func HandleFacebookStart(w http.ResponseWriter, r *http.Request) {
@@ -80,6 +101,13 @@ func HandleFacebookAuthorized(w http.ResponseWriter, r *http.Request) {
 	}
 	user.Login(w, r)
 
+	http.Redirect(w, r, "/", http.StatusFound)
+}
+
+func HandleLogout(w http.ResponseWriter, r *http.Request) {
+	session, _ := SessionStore.Get(r, KeySessionCookieName)
+	session.Options = &sessions.Options{MaxAge: -1}
+	session.Save(r, w)
 	http.Redirect(w, r, "/", http.StatusFound)
 }
 

@@ -1,0 +1,8 @@
+{{template "HEADER"}}
+<h2>Hello {{ .FirstName }}!</h2>
+{{ if .FacebookAccessToken }}
+  <a href="/logout">Logout</a>
+{{ else }}
+	<a href="/facebook_start">login with facebook</a>
+{{ end }}
+{{template "FOOTER"}}

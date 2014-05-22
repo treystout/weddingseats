@@ -17,7 +17,6 @@ var (
 	configLock   = new(sync.RWMutex) // so we can hot-reload config
 	FACEBOOK_CFG = new(oauth.Config)
 	SessionStore *sessions.CookieStore
-	CurrentUser  *User
 )
 
 func check(e error) {
@@ -70,6 +69,7 @@ func init() {
 	// setup URL handlers
 	http.Handle("/", WrapHandler(HandleIndex))
 	http.Handle("/tz", WrapHandler(HandleGender))
+	http.HandleFunc("/logout", HandleLogout)
 	http.HandleFunc("/facebook_start", HandleFacebookStart)
 	http.HandleFunc("/facebook_authorized", HandleFacebookAuthorized)
 }
