@@ -24,7 +24,7 @@ func check(e error) {
 
 func init() {
 	// locate and read our configuration
-	err := ReadConfig("conf.json")
+	err := ReadConfig("conf.json.prod")
 	check(err)
 
 	FACEBOOK_CFG.ClientId = config.Facebook.ClientId
