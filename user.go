@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/gorilla/context"
+
 	"code.google.com/p/goauth2/oauth"
 
 	"appengine"
@@ -50,17 +52,25 @@ func (u *User) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetUserFromSession(r *http.Request) (user *User) {
+	ctx := appengine.NewContext(r)
+	// first see if this user is in the global context for the request
+	if rv := context.Get(r, KeyCurrentUser); rv != nil {
+		ctx.Infof("user found in global context")
+		return rv.(*User)
+	}
+
 	session, _ := SessionStore.Get(r, "session")
 	user_key, found := session.Values["user_key"]
 	if !found {
 		return ANONYMOUS
 	}
-	ctx := appengine.NewContext(r)
 	user, err := LocateUser(&ctx, session.Values["user_key"].(string))
 	if err != nil {
 		ctx.Debugf("session key found for user: %s but that user wasn't in the datastore!", user_key)
 		return ANONYMOUS
 	}
+	// great we found them, put them in the global context
+	context.Set(r, KeyCurrentUser, *user)
 	return user
 }
 

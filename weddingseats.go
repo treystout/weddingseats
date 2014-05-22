@@ -5,7 +5,10 @@ import (
 	"sync"
 
 	"code.google.com/p/goauth2/oauth"
+	"github.com/gorilla/context"
 	"github.com/gorilla/sessions"
+
+	"appengine"
 )
 
 // global vars
@@ -14,6 +17,7 @@ var (
 	configLock   = new(sync.RWMutex) // so we can hot-reload config
 	FACEBOOK_CFG = new(oauth.Config)
 	SessionStore *sessions.CookieStore
+	CurrentUser  *User
 )
 
 func check(e error) {
@@ -22,9 +26,32 @@ func check(e error) {
 	}
 }
 
+func PreRequest(w http.ResponseWriter, r *http.Request) {
+	c := appengine.NewContext(r)
+	c.Debugf("in pre request")
+	context.Set(r, KeyCurrentUser, GetUserFromSession(r))
+}
+func PostRequest(w http.ResponseWriter, r *http.Request) {
+	c := appengine.NewContext(r)
+	c.Debugf("in post request")
+}
+
+func WrapHandler(wrapped http.HandlerFunc) http.HandlerFunc {
+	// wraps a given Handler with PreRequest and PostRequest
+	return func(w http.ResponseWriter, r *http.Request) {
+		PreRequest(w, r)
+		// now wrap the wrapped call with a context-clearing handler
+		clean_wrapped := context.ClearHandler(wrapped)
+		clean_wrapped.ServeHTTP(w, r)
+		// finally do the post request
+		PostRequest(w, r)
+	}
+}
+
 func init() {
 	// locate and read our configuration
-	err := ReadConfig("conf.json.prod")
+	//err := ReadConfig("conf.json.prod")
+	err := ReadConfig("conf.json.testing")
 	check(err)
 
 	FACEBOOK_CFG.ClientId = config.Facebook.ClientId
@@ -41,8 +68,8 @@ func init() {
 	}
 
 	// setup URL handlers
-	http.HandleFunc("/", HandleIndex)
-	http.HandleFunc("/tz", HandleGender)
+	http.Handle("/", WrapHandler(HandleIndex))
+	http.Handle("/tz", WrapHandler(HandleGender))
 	http.HandleFunc("/facebook_start", HandleFacebookStart)
 	http.HandleFunc("/facebook_authorized", HandleFacebookAuthorized)
 }
