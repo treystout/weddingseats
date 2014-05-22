@@ -2,7 +2,6 @@ package weddingseats
 
 import (
 	"encoding/json"
-	"log"
 	"os"
 )
 
@@ -24,7 +23,6 @@ func ReadConfig(path string) (err error) {
 	if err != nil {
 		return err
 	}
-	log.Printf("loaded config from %s", path)
 	decoder := json.NewDecoder(fp)
 	err = decoder.Decode(local_conf)
 	if err != nil {
